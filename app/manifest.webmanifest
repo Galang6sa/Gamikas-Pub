@@ -1,0 +1,17 @@
+{
+  "name": "KasKelas",
+  "short_name": "KasKelas",
+  "description": "Buku kas kelas yang dicap.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F3F6FB",
+  "theme_color": "#F3F6FB",
+  "icons": [
+    {
+      "src": "/kaskelas-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

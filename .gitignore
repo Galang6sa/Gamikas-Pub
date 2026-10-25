@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+datakelas.json
+
+pin_awal_*.csv
+qris_riwayat_*.csv
