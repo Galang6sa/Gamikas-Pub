@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Button, StatusStamp } from "@/components/ui";
-import { keterangan, lunasDiMinggu, mingguBerjalan, rangkaianTepat, rupiah, stempel, sudahTelat, susunMatriks, type Ringkasan } from "@/lib/papan";
+import { Button } from "@/components/ui";
+import { keterangan, lunasDiMinggu, mingguBerjalan, rangkaianTepat, rupiah, sudahTelat, susunMatriks, tanggalPendek, type Ringkasan } from "@/lib/papan";
 import PapanKelas from "./PapanKelas";
 import type { Ctx } from "./tipe";
 
@@ -37,7 +37,8 @@ export default function Beranda({ ctx, bukaBayar }: { ctx: Ctx; bukaBayar: (id?:
             <div><span>Uang tanpa pemilik</span><strong>{rupiah(tanpaPemilik)}</strong></div>
             <div><span>Kas tercatat</span><strong>{rupiah(saldo)}</strong></div>
           </div>
-          <PapanKelas ctx={ctx} />
+          <div className="button-row"><Button onClick={() => go("bendahara")}>Buka Meja bendahara</Button></div>
+          <div className="desktop-only"><PapanKelas ctx={ctx} /></div>
         </div>
       </>
     );
@@ -74,17 +75,17 @@ export default function Beranda({ ctx, bukaBayar }: { ctx: Ctx; bukaBayar: (id?:
             </div>
             <div className="ticket-stack">
               {tertunggak.length ? tertunggak.map((r) => (
-                <article className={`ticket ticket-late`} key={r.tagihan_id}>
-                  <button className="ticket-select" onClick={() => bukaBayar(r.tagihan_id)} aria-label={`Bayar minggu ${r.mulai}`}>
-                    <span className="ticket-info"><strong>{new Date(`${r.mulai}T12:00:00+07:00`).toLocaleDateString("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta" })}</strong><span>{keterangan(r, sekarang, dendaAktif)}</span></span>
-                    <span className="ticket-coupon"><strong>{rupiah(r.total)}</strong><StatusStamp status={stempel(r.status)} /></span>
+                <article className="ticket ticket-late" key={r.tagihan_id}>
+                  <button className="ticket-pick ticket-pick--plain" onClick={() => bukaBayar(r.tagihan_id)} aria-label={`Bayar minggu ${tanggalPendek(r.mulai)}, ${rupiah(r.total)}`}>
+                    <span className="ticket-info"><strong>{tanggalPendek(r.mulai)} sampai {tanggalPendek(r.akhir)}</strong><span>{keterangan(r, sekarang, dendaAktif)}</span></span>
+                    <span className="ticket-coupon"><strong>{rupiah(r.total)}</strong></span>
                   </button>
                 </article>
               )) : <p className="empty-message">Tidak ada tunggakan yang perlu dibayar.</p>}
             </div>
           </section>
 
-          <PapanKelas ctx={ctx} />
+          <div className="desktop-only"><PapanKelas ctx={ctx} /></div>
         </div>
 
         <aside className="home-side">

@@ -1,5 +1,5 @@
 // Fungsi murni untuk mengubah data dari database menjadi bentuk yang dipakai layar.
-export type StatusTagihan = "terkonfirmasi" | "lunas_sementara" | "perlu_dicek" | "belum" | "libur";
+export type StatusTagihan = "terkonfirmasi" | "lunas_sementara" | "perlu_dicek" | "mencurigakan" | "belum" | "libur";
 
 export type PapanRow = {
   tagihan_id: string;
@@ -31,15 +31,17 @@ export type Ringkasan = {
   denda: number;
   total: number;
   denda_dibebaskan: boolean;
+  pembayaran_id: string | null;
 };
 
-export type StampStatus = "lunas" | "cek" | "ditolak" | "libur" | "bebas" | "belum";
+export type StampStatus = "lunas" | "cek" | "tinjau" | "ditolak" | "libur" | "bebas" | "belum";
 
 export const LUNAS: StatusTagihan[] = ["terkonfirmasi", "lunas_sementara"];
 
 export function stempel(status: StatusTagihan): StampStatus {
   if (status === "terkonfirmasi" || status === "lunas_sementara") return "lunas";
   if (status === "perlu_dicek") return "cek";
+  if (status === "mencurigakan") return "tinjau";
   if (status === "libur") return "libur";
   return "belum";
 }
@@ -105,6 +107,8 @@ export function keterangan(r: Ringkasan, now: Date, dendaAktif: boolean): string
       return "Lunas sementara. Menunggu konfirmasi dengan laporan QRIS.";
     case "perlu_dicek":
       return "Bukti pembayaran menunggu cek bendahara.";
+    case "mencurigakan":
+      return "Belum cocok dengan laporan QRIS. Bendahara akan memeriksa.";
     case "libur":
       return "Minggu libur. Tidak ada tagihan.";
     default:
@@ -136,4 +140,21 @@ export function rangkaianTepat(rows: PapanRow[], siswaId: string, now: Date): nu
     else break;
   }
   return n;
+}
+
+// Tahap pengingat menurut hari (WIB): Sabtu H-1, Minggu terakhir sebelum denda, hari lain tagihan baru.
+export function tahapSaatIni(now: Date): "tagihan_baru" | "h_min_1" | "terakhir" {
+  const hari = now.toLocaleDateString("en-US", { weekday: "short", timeZone: "Asia/Jakarta" });
+  return hari === "Sat" ? "h_min_1" : hari === "Sun" ? "terakhir" : "tagihan_baru";
+}
+
+export function hariJam(iso: string): string {
+  const d = new Date(iso);
+  const hari = d.toLocaleDateString("id-ID", { weekday: "short", timeZone: "Asia/Jakarta" });
+  const jam = d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
+  return `${hari} ${jam}`;
+}
+
+export function tanggalPendek(tanggal: string): string {
+  return new Date(`${tanggal.slice(0, 10)}T12:00:00+07:00`).toLocaleDateString("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta" });
 }

@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { galat, keluar, muatSesi, type Sesi } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
+import { mainkan, siapkanBunyi } from "@/lib/bunyi";
 import { Button, Icon } from "@/components/ui";
 import Bayar from "./Bayar";
 import Beranda from "./Beranda";
 import GantiPin from "./GantiPin";
 import Kas from "./Kas";
-import Masuk from "./Masuk";
+import Masuk, { lupakanPerangkat } from "./Masuk";
 import MejaBendahara from "./MejaBendahara";
 import PapanKelas from "./PapanKelas";
 import Pengaturan, { type Tema } from "./Pengaturan";
@@ -26,7 +27,7 @@ function simpan(kunci: string, nilai: string) {
   }
 }
 
-export default function LiveApp() {
+export default function LiveApp({ peran = "siswa" }: { peran?: "siswa" | "bendahara" }) {
   const [fase, setFase] = useState<"memuat" | "masuk" | "siap" | "galat">("memuat");
   const [sesi, setSesi] = useState<Sesi | null>(null);
   const [pesanGalat, setPesanGalat] = useState("");
@@ -97,7 +98,19 @@ export default function LiveApp() {
     );
   }
 
-  if (fase === "masuk" || !sesi) return <main className="app app-auth"><Masuk onMasuk={sinkron} /></main>;
+  if (fase === "masuk" || !sesi) return <main className="app app-auth"><Masuk mode={peran} onMasuk={sinkron} /></main>;
+
+  if (peran === "bendahara" && sesi.role !== "bendahara") {
+    return (
+      <main className="app app-auth">
+        <div className="login-wrap"><div className="login-paper">
+          <h1>Halaman bendahara.</h1>
+          <p role="alert">Akun ini bukan akun bendahara.</p>
+          <div className="button-row"><Button onClick={() => void keluarAkun()}>Keluar</Button><a className="button button-secondary" href="/">Ke halaman siswa</a></div>
+        </div></div>
+      </main>
+    );
+  }
 
   if (sesi.harusGantiPin || gantiPinTerbuka) {
     return (
@@ -112,7 +125,12 @@ export default function LiveApp() {
   return (
     <Aplikasi sesi={sesi} tema={tema} bunyi={bunyi} toast={toast} notify={setToast}
       setTema={(t) => { setTemaState(t); simpan(KUNCI_TEMA, t); }}
-      setBunyi={(b) => { setBunyiState(b); simpan(KUNCI_BUNYI, b ? "1" : "0"); }}
+      setBunyi={(b) => {
+        // Dipanggil dari klik pengguna: di sinilah browser mengizinkan audio, jadi buka dan bunyikan contoh sekarang.
+        if (b) { siapkanBunyi(); mainkan("berhasil", true); }
+        setBunyiState(b);
+        simpan(KUNCI_BUNYI, b ? "1" : "0");
+      }}
       bukaGantiPin={() => setGantiPinTerbuka(true)} keluarAkun={keluarAkun} />
   );
 }
@@ -131,15 +149,26 @@ function Aplikasi({ sesi, tema, setTema, bunyi, setBunyi, bukaGantiPin, keluarAk
     return () => window.clearInterval(t);
   }, []);
 
+  // Bunyi tekan untuk tombol umum. Karcis, stempel, dan lainnya punya bunyi sendiri.
+  useEffect(() => {
+    if (!bunyi) return;
+    const tekan = (e: PointerEvent) => {
+      const el = e.target instanceof Element ? e.target.closest(".button, .nav-item, .segmented button, .tab-bar button, .name-pick, .switch") : null;
+      if (el && !(el as HTMLButtonElement).disabled) mainkan("tap", true);
+    };
+    document.addEventListener("pointerdown", tekan);
+    return () => document.removeEventListener("pointerdown", tekan);
+  }, [bunyi]);
+
   const ctx: Ctx = { sesi, kelas: data, muat, sekarang, notify, go: setScreen, bunyi };
   const bukaBayar = (id?: string) => { setBayarAwal(id); setScreen("bayar"); };
 
-  const item: { screen: Screen; label: string; icon: string }[] = [
-    { screen: "beranda", label: "Beranda", icon: "beranda" },
-    ...(sesi.role === "siswa" ? [{ screen: "bayar" as Screen, label: "Bayar", icon: "bayar" }] : []),
-    { screen: "papan", label: "Papan", icon: "papan" },
-    { screen: "kas", label: "Kas", icon: "kas" },
-    ...(sesi.role === "bendahara" ? [{ screen: "bendahara" as Screen, label: "Meja bendahara", icon: "bendahara" }] : []),
+  const item: { screen: Screen; label: string; pendek: string; icon: string }[] = [
+    { screen: "beranda", label: "Beranda", pendek: "Beranda", icon: "beranda" },
+    ...(sesi.role === "siswa" ? [{ screen: "bayar" as Screen, label: "Bayar", pendek: "Bayar", icon: "bayar" }] : []),
+    { screen: "papan", label: "Papan", pendek: "Papan", icon: "papan" },
+    { screen: "kas", label: "Kas", pendek: "Kas", icon: "kas" },
+    ...(sesi.role === "bendahara" ? [{ screen: "bendahara" as Screen, label: "Meja bendahara", pendek: "Meja", icon: "bendahara" }] : []),
   ];
 
   const navigasi = (
@@ -147,11 +176,11 @@ function Aplikasi({ sesi, tema, setTema, bunyi, setBunyi, bukaGantiPin, keluarAk
       {item.map((n) => (
         <button key={n.screen} className={`nav-item ${screen === n.screen ? "active" : ""}`} aria-current={screen === n.screen ? "page" : undefined}
           onClick={() => (n.screen === "bayar" ? bukaBayar() : setScreen(n.screen))}>
-          <Icon name={n.icon} filled={screen === n.screen} /><span>{n.label}</span>
+          <Icon name={n.icon} filled={screen === n.screen} /><span className="nav-label-long">{n.label}</span><span className="nav-label-short">{n.pendek}</span>
         </button>
       ))}
       <button className={`nav-item nav-settings ${screen === "pengaturan" ? "active" : ""}`} onClick={() => setScreen("pengaturan")}>
-        <Icon name="pengaturan" filled={screen === "pengaturan"} /><span>Pengaturan</span>
+        <Icon name="pengaturan" filled={screen === "pengaturan"} /><span className="nav-label-long">Pengaturan</span><span className="nav-label-short">Akun</span>
       </button>
     </nav>
   );
@@ -169,10 +198,10 @@ function Aplikasi({ sesi, tema, setTema, bunyi, setBunyi, bukaGantiPin, keluarAk
         {data.pesan && <p className="notice" role="status">Data terakhir diperbarui pukul {jam}. {data.pesan} <button className="text-button" onClick={() => void muat()}>Muat ulang</button></p>}
         {screen === "beranda" && <Beranda ctx={ctx} bukaBayar={bukaBayar} />}
         {screen === "bayar" && <Bayar ctx={ctx} awal={bayarAwal} />}
-        {screen === "papan" && <><div className="page-heading"><p className="eyebrow">Buku absen pembayaran</p><h1>Papan kelas.</h1><p>Nama dan status pembayaran teman sekelas dalam satu pandangan.</p></div><PapanKelas ctx={ctx} /></>}
+        {screen === "papan" && <><div className="page-heading"><p className="eyebrow">Buku absen pembayaran</p><h1>Papan kelas.</h1><p>Nama dan status pembayaran teman sekelas dalam satu pandangan.</p></div><PapanKelas ctx={ctx} awal="papan" /></>}
         {screen === "kas" && <Kas ctx={ctx} />}
         {screen === "bendahara" && sesi.role === "bendahara" && <MejaBendahara ctx={ctx} />}
-        {screen === "pengaturan" && <Pengaturan sesi={sesi} tema={tema} setTema={setTema} bunyi={bunyi} setBunyi={setBunyi} bukaGantiPin={bukaGantiPin} keluar={() => void keluarAkun()} />}
+        {screen === "pengaturan" && <Pengaturan sesi={sesi} tema={tema} setTema={setTema} bunyi={bunyi} setBunyi={setBunyi} bukaGantiPin={bukaGantiPin} lupakan={() => { lupakanPerangkat(); void keluarAkun(); }} keluar={() => void keluarAkun()} />}
       </>
     );
   }

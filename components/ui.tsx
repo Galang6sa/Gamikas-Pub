@@ -1,27 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { mainkan } from "@/lib/bunyi";
 
 export function playFeedbackSound(kind: "tap" | "tear" | "stamp", enabled: boolean) {
-  if (!enabled || typeof window === "undefined" || !window.AudioContext) return;
-  const context = new window.AudioContext();
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  const settings = {
-    tap: { frequency: 520, duration: 0.045 },
-    tear: { frequency: 260, duration: 0.09 },
-    stamp: { frequency: 150, duration: 0.14 },
-  }[kind];
-  oscillator.type = "triangle";
-  oscillator.frequency.setValueAtTime(settings.frequency, context.currentTime);
-  oscillator.frequency.exponentialRampToValueAtTime(settings.frequency * 0.68, context.currentTime + settings.duration);
-  gain.gain.setValueAtTime(0.035, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + settings.duration);
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start();
-  oscillator.stop(context.currentTime + settings.duration);
-  oscillator.addEventListener("ended", () => void context.close(), { once: true });
+  mainkan(kind === "tear" ? "sobek" : kind === "stamp" ? "cap" : "tap", enabled);
 }
 
 export function Icon({ name, filled = false }: { name: string; filled?: boolean }) {
@@ -53,20 +36,20 @@ export function Icon({ name, filled = false }: { name: string; filled?: boolean 
   );
 }
 
-export function StatusStamp({ status }: { status: "lunas" | "cek" | "ditolak" | "libur" | "bebas" | "belum" }) {
-  const labels = { lunas: "Lunas", cek: "Perlu dicek", ditolak: "Ditolak", libur: "Libur", bebas: "Dibebaskan", belum: "Belum bayar" };
-  const stampText = { lunas: "LUNAS", cek: "DICEK", ditolak: "DITOLAK", libur: "LIBUR", bebas: "BEBAS", belum: "BELUM" };
+export type StampStatus = "lunas" | "cek" | "tinjau" | "ditolak" | "libur" | "bebas" | "belum";
+
+const LABEL_STEMPEL: Record<StampStatus, string> = {
+  lunas: "Lunas", cek: "Perlu dicek", tinjau: "Perlu ditinjau", ditolak: "Ditolak", libur: "Libur", bebas: "Dibebaskan", belum: "Belum bayar",
+};
+const TEKS_STEMPEL: Record<StampStatus, string> = {
+  lunas: "LUNAS", cek: "DICEK", tinjau: "TINJAU", ditolak: "DITOLAK", libur: "LIBUR", bebas: "BEBAS", belum: "BELUM",
+};
+
+// Teks stempel adalah teks sungguhan (bukan gambar yang diperkecil), jadi ukurannya mengikuti pengaturan pengguna dan terbaca.
+export function StatusStamp({ status, compact = false }: { status: StampStatus; compact?: boolean }) {
   return (
-    <span className={`stamp stamp-${status}`} role="img" aria-label={labels[status]}>
-      <svg className="stamp-graphic" viewBox="0 0 120 40" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        {status === "lunas" && <><circle cx="60" cy="20" r="17" /><circle cx="60" cy="20" r="13" /></>}
-        {status === "cek" && <path d="M12 3h96l9 8v18l-9 8H12l-9-8V11z" />}
-        {status === "ditolak" && <><rect x="7" y="5" width="106" height="30" rx="2" /><path d="m10 32 100-24" /></>}
-        {status === "libur" && <rect x="8" y="5" width="104" height="30" strokeDasharray="3 4" />}
-        {status === "bebas" && <ellipse cx="60" cy="20" rx="52" ry="15" />}
-        {status === "belum" && <rect x="8" y="5" width="104" height="30" strokeDasharray="5 5" />}
-        <text x="60" y="20" fill="currentColor" stroke="none" textAnchor="middle" dominantBaseline="middle">{stampText[status]}</text>
-      </svg>
+    <span className={`stamp stamp-${status} ${compact ? "stamp-compact" : ""}`} role="img" aria-label={LABEL_STEMPEL[status]}>
+      <span aria-hidden="true">{TEKS_STEMPEL[status]}</span>
     </span>
   );
 }

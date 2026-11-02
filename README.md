@@ -6,7 +6,7 @@ Aplikasi punya dua mode yang ditentukan saat build:
 
 | Mode | Syarat | Isi |
 |---|---|---|
-| **Demo** | Variabel Supabase kosong | Prototipe M1 dengan data fiktif, tanpa backend. Selalu juga tersedia di `/demo` |
+| **Demo** | Variabel Supabase kosong | `/` dan `/bendahara` diarahkan ke prototipe M1 dengan data fiktif, tanpa backend. Prototipe juga selalu ada di `/demo` |
 | **Data sungguhan** | `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` terisi | Login kode kelas, pilih nama, PIN, data dari Supabase, aksi bendahara |
 
 ## Menjalankan
@@ -28,6 +28,7 @@ Jalankan berkas SQL di SQL Editor Supabase secara berurutan dari `supabase/migra
 3. `004_perketat_akses.sql`: hanya anggota kelas yang boleh membaca.
 4. `005_daftar_login.sql`, lalu atur kode kelas (petunjuk ada di akhir berkas).
 5. `006_impor_riwayat_qris.sql` (untuk riwayat QRIS) dan `007_rpc_aplikasi.sql` (fungsi yang dipanggil aplikasi).
+6. `008_klaim_qris_dan_impor.sql`: unggah bukti, pencocokan dengan laporan GoPay, antrean bendahara. Opsional, agar bukti GoPay tanpa kode merchant dikenali: `update public.konfigurasi set merchant_nama = 'NAMA SEPERTI DI BUKTI';`
 
 Lalu di dashboard Supabase:
 
@@ -35,6 +36,20 @@ Lalu di dashboard Supabase:
 - Buat akun bendahara (Authentication, Users, Add user, Auto Confirm), lalu jalankan:
   `insert into public.profil (id, role) select id, 'bendahara' from auth.users where email = 'emailmu';`
 - Buat akun siswa dengan skrip `buat_akun.mjs` (dijalankan lokal memakai kunci rahasia, jangan dimasukkan ke repositori).
+
+## Rute
+
+| Rute | Untuk |
+|---|---|
+| `/` | Masuk dan aplikasi siswa (kode kelas diingat perangkat, lalu pilih nama dan PIN) |
+| `/bendahara` | Masuk bendahara (email dan kata sandi). Tidak ditautkan dari halaman siswa |
+| `/demo` | Prototipe dengan data fiktif |
+
+## Unggah bukti dan pencocokan
+
+OCR berjalan **di browser siswa** (Tesseract.js). Gambar tidak dikirim ke server; yang dikirim hanya hasil bacaan dan hash gambar. Saat pertama dipakai, browser mengunduh pembaca OCR dan data bahasa dari CDN bawaan Tesseract.js (beberapa megabyte, lalu tersimpan di cache).
+
+Status pembayaran QRIS: `terkonfirmasi` (cocok dengan tepat satu baris laporan GoPay), `lunas_sementara` (laporan belum mencakup waktunya), `perlu_dicek`, `mencurigakan` (laporan sudah mencakup waktunya tetapi tidak ada transaksi yang cocok), `ditolak`. Bendahara mengimpor laporan CSV GoPay Merchant dari tab Laporan QRIS, lalu mencocokkan dan memutuskan klaim dari tab Antrean.
 
 ## Perintah pemeriksaan
 
@@ -50,6 +65,9 @@ npm run build
 - `components/live/`: mode data sungguhan. `LiveApp` (sesi dan cangkang), `Masuk`, `GantiPin`, `Beranda`, `Bayar`, `PapanKelas`, `Kas`, `MejaBendahara`, `Pengaturan`, hook `useKelas`.
 - `components/Demo.tsx`: prototipe M1 (data contoh). `components/ui.tsx`: Icon, StatusStamp, Button.
 - `lib/api.ts`: seluruh akses ke Supabase dan penerjemahan galat. `lib/papan.ts`: pemetaan data ke tampilan. `lib/pin.ts`: aturan PIN. `lib/domain.ts`: denda untuk demo.
+- `lib/ocr.ts`: pembaca bukti. `lib/gopay.ts`: pembaca CSV GoPay. `lib/bunyi.ts`: bunyi. `lib/nama.ts`: nama singkat. `lib/csv.ts`: ekspor CSV.
+- `components/live/bendahara/`: tab Meja bendahara (Antrean, Catat, Laporan QRIS, Pengingat, Atur).
+- `supabase/tests/`: uji SQL (jalankan di PostgreSQL lokal dengan `stub_supabase.sql` dan `stub_ext.sql`).
 - `supabase/migrations/`: skema dan fungsi database.
 
 ## Prinsip keamanan
@@ -60,4 +78,4 @@ npm run build
 
 ## Belum dibangun
 
-Unggah bukti dengan OCR, pencocokan otomatis dengan laporan GoPay, penetapan "uang tanpa pemilik" dari layar, notifikasi Web Push, pengingat wa.me bertanda, penguncian login per akun, dan sinkronisasi Google Sheets. Layar Bayar saat ini berhenti di QRIS dan meminta siswa memberi tahu bendahara.
+Notifikasi Web Push, penguncian login per akun (kini hanya batas laju bawaan Supabase), dan sinkronisasi Google Sheets.

@@ -1,0 +1,22 @@
+{
+ "bri": {
+  "asli": "NO\nTransaksi Berhasil\n19 Oct 2026, 13:12:00 WIB\nTotal Transaksi\nRp15.000\nNo. Ref 234750394461\nSumber Dana\n\nNama Pembayar\n(ar ] BRI\n\n6510 **** **+* 509\nTujuan\n\nNAMA MERCHANT, Digi\n\n& QRIS Bayar\n\nID G975190623\nJenis Transaksi QRIS Bayar\nNama Merchant NAMA MERCHANT, Digi\nLokasi Merchant PATI\nNama Penerbit BRI\nNama Pengakuisisi GoPay\nNomor Invoice X0sAJUshfUX0sAJUshfu\nKnde PAN Pelananan QAANNNN21N12N7RA2R7\n= Rapin\n",
+  "ditingkatkan": "Transaksi Berhasil\n19 Oct 2026, 13:12:00 WIB\nTotal Transaksi\nRp15.000\nNo. Ref 234750394461\nSumber Dana\nNama Pembayar\noe J\n6510 **** xxxx 50g\nTujuan\nNAMA MERCHANT, Digi\nBB QRIS Bayar\nID G975190623\nJenis Transaksi QRIS Bayar\nNama Merchant NAMA MERCHANT, Digi\nLokasi Merchant PATI\nNama Penerbit BRI\nNama Pengakuisisi GoPay\nNomor Invoice X0sAJUshfUX0sAJUshfU\nKnda PAN Palananan Q3RNNNN21N1207RA2R7\n"
+ },
+ "dompet_a": {
+  "asli": "Alhamdulillah, transaksi pembayaran\nQRIS kamu berhasil!\nNominal Transaksi Rp 10.000,00\nNama Merchant NAMA MERCHANT\n, Digi\nPATI, 59157, ID\nMPAN 9360091439751906230\nDetail Transaksi Vv\n=< 2\nShare Download\n—\n",
+  "ditingkatkan": "Alhamdulillah, transaksi pembayaran\nQRIS kamu berhasil!\n12 Okt 2026 - 13:25:47\nNominal Transaksi Rp 10.000,00\nNama Merchant NAMA MERCHANT\n, Digi\nPATI, 59157, ID\nMPAN 9360091439751906230\nDetail Transaksi Vv\n<Q &\nShare Download\n——\n"
+ },
+ "dompet_b": {
+  "asli": "8:08 MX X @® EF. 61%m\nPembayaran Berhasil!\nLihat Resi\nNAMA MERCHANT, Digi\nPATI\nRp 10.000\n£ Bagikan Resi\n»\n3 & Bayar PDAM dalam genggaman di isin\nER\nNAG o\nEE  —\n",
+  "ditingkatkan": "808M XX * 0 ul 61%\nX\nPembayaran Berhasil!\n12 Okt 2026 - 08:08:23 WIB\n~~ a\n~~\nal pe 58)\n71 y= AN\n- __ |LihatResk — | |\nImm {jpeS——_my i E11 P|\nPenerima\nNAMA MERCHANT ADMAVJA, Digi\nPATI\n\nMerchant PAN - 9360091439751906230\nNominal Transaksi\nRp 10.000\n[a] Bagikan Resi\n\n3 E (NEA Bayar PDAM dalam genggaman di ign\nWy\nhr, ap\n.\n"
+ },
+ "gopay": {
+  "asli": "GS\nRp5.000\nBerhasil bayar ke NAMA MERCHANT,\nDigital & Kreatif\nPATI, 59157\n[/] Hore, kamu dapet 5 GoPay Coins!\nDetail pembayaran\nStatus Sukses\nRincian lengkap Vv\nBagi jatah bayar transaksi ini bareng temenmu!\n4\nE =] <]\nSplit - atur jumlah Split - foto struk Bagi bukti bayar\n",
+  "ditingkatkan": "GS\nRp5.000\nBerhasil bayar ke NAMA MERCHANT,\nDigital & Kreatif\nPATI, 59157\n[] Hore, kamu dapet 5 GoPay Coins!\nDetail pembayaran\nStatus Sukses\nRincian lengkap Vv\nSplit - atur jumlah Split - foto struk Bagi bukti bayar\n"
+ },
+ "bca": {
+  "asli": "Pembayaran QRIS Berhasil\nRp10.000,00\n17/10/2026 - 06:08:47 WIB\nPembayaran ke NAMA MERCHANT, Digi\nPengakuisisi GOPAY\nLokasi PATI, 59157, ID\nMerchant\nMerchant PAN  9360091439751906230\nTerminal ID AO1\nDari 5550****25\nCustomer PAN  9360000000000000000\nRRN 306582181\nRef 9503120261017060847\n4887566113B6BFCA\n",
+  "ditingkatkan": "Pembayaran QRIS Berhasil\nRp10.000,00\n17/10/2026 - 06:08:47 WIB\nPembayaran ke NAMA MERCHANT, Digi\nPengakuisisi GOPAY\nLokasi PATI, 59157, ID\nMerchant\nMerchant PAN 9360091439751906230\nTerminal ID AO1\nDari 5550****25\nCustomer PAN 9360000000000000000\nRRN 306582181\nRef 9503120261017060847\n4887566113B6BFCA\n"
+ }
+}

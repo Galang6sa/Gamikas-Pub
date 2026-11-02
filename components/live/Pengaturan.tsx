@@ -5,14 +5,15 @@ import type { Sesi } from "@/lib/api";
 
 export type Tema = "perangkat" | "siang" | "malam";
 
-export default function Pengaturan({ sesi, tema, setTema, bunyi, setBunyi, bukaGantiPin, keluar }: {
-  sesi: Sesi; tema: Tema; setTema: (t: Tema) => void; bunyi: boolean; setBunyi: (b: boolean) => void; bukaGantiPin: () => void; keluar: () => void;
+export default function Pengaturan({ sesi, tema, setTema, bunyi, setBunyi, bukaGantiPin, lupakan, keluar }: {
+  sesi: Sesi; tema: Tema; setTema: (t: Tema) => void; bunyi: boolean; setBunyi: (b: boolean) => void;
+  bukaGantiPin: () => void; lupakan: () => void; keluar: () => void;
 }) {
   return (
     <>
       <div className="page-heading">
         <p className="eyebrow">Pilihanmu</p>
-        <h1>Pengaturan.</h1>
+        <h1>Akun dan pengaturan.</h1>
         <p>{sesi.role === "siswa" ? `Masuk sebagai ${sesi.nama ?? "siswa"}, NRP ${sesi.nrp ?? ""}.` : "Masuk sebagai bendahara."}</p>
       </div>
       <section className="paper settings-list">
@@ -25,7 +26,7 @@ export default function Pengaturan({ sesi, tema, setTema, bunyi, setBunyi, bukaG
           </select>
         </div>
         <div className="setting-row">
-          <div><strong>Bunyi</strong><p>Bunyi tekan dan stempel. Mati secara bawaan.</p></div>
+          <div><strong>Bunyi</strong><p>Bunyi tekan dan stempel. Naikkan volume perangkat bila tidak terdengar.</p></div>
           <button className={`switch ${bunyi ? "switch-on" : ""}`} role="switch" aria-checked={bunyi} aria-label="Bunyi" onClick={() => setBunyi(!bunyi)}><span /></button>
         </div>
         {sesi.role === "siswa" && (
@@ -34,9 +35,15 @@ export default function Pengaturan({ sesi, tema, setTema, bunyi, setBunyi, bukaG
             <Button kind="secondary" onClick={bukaGantiPin}>Ganti PIN</Button>
           </div>
         )}
+        {sesi.role === "siswa" && (
+          <div className="setting-row">
+            <div><strong>Lupakan perangkat ini</strong><p>Hapus nama dan kode kelas yang diingat. Cocok untuk perangkat bersama.</p></div>
+            <Button kind="secondary" onClick={lupakan}>Lupakan</Button>
+          </div>
+        )}
         <div className="setting-row">
           <div><strong>Keluar</strong><p>Akunmu keluar dari perangkat ini.</p></div>
-          <Button kind="secondary" onClick={keluar}>Keluar</Button>
+          <Button kind="warning" onClick={keluar}>Keluar</Button>
         </div>
       </section>
     </>

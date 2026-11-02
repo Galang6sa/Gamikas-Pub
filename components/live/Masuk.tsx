@@ -1,25 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ambilDaftarNama, masukBendahara, masukSiswa } from "@/lib/api";
 import { Button, Icon } from "@/components/ui";
 
-const KUNCI_PERANGKAT = "kaskelas-perangkat";
+const KUNCI_PERANGKAT = "kaskelas-perangkat"; // nama yang terakhir masuk di perangkat ini
+const KUNCI_KODE = "kaskelas-kode";           // kode kelas, supaya tidak perlu diketik lagi
 type Pilihan = { nrp: string; nama: string };
 
+function baca(kunci: string): string | null {
+  try {
+    return window.localStorage.getItem(kunci);
+  } catch {
+    return null;
+  }
+}
+function tulis(kunci: string, nilai: string | null) {
+  try {
+    if (nilai === null) window.localStorage.removeItem(kunci);
+    else window.localStorage.setItem(kunci, nilai);
+  } catch {
+    /* penyimpanan boleh gagal, tidak memengaruhi masuk */
+  }
+}
 function bacaPerangkat(): Pilihan | null {
   try {
-    const mentah = window.localStorage.getItem(KUNCI_PERANGKAT);
-    const p = mentah ? (JSON.parse(mentah) as Partial<Pilihan>) : null;
+    const p = JSON.parse(baca(KUNCI_PERANGKAT) ?? "null") as Partial<Pilihan> | null;
     return p?.nrp && p?.nama ? { nrp: p.nrp, nama: p.nama } : null;
   } catch {
     return null;
   }
 }
 
-export default function Masuk({ onMasuk }: { onMasuk: () => Promise<void> }) {
-  const [mode, setMode] = useState<"siswa" | "bendahara">("siswa");
-  const [langkah, setLangkah] = useState<"kode" | "nama" | "pin">("kode");
+// Bersihkan semua ingatan perangkat (dipakai tombol "Lupakan perangkat ini" di Pengaturan).
+export function lupakanPerangkat() {
+  tulis(KUNCI_PERANGKAT, null);
+  tulis(KUNCI_KODE, null);
+}
+
+export default function Masuk({ mode, onMasuk }: { mode: "siswa" | "bendahara"; onMasuk: () => Promise<void> }) {
+  const [langkah, setLangkah] = useState<"memuat" | "kode" | "nama" | "pin">(mode === "siswa" ? "memuat" : "kode");
   const [kode, setKode] = useState("");
   const [daftar, setDaftar] = useState<Pilihan[]>([]);
   const [cari, setCari] = useState("");
@@ -31,13 +51,41 @@ export default function Masuk({ onMasuk }: { onMasuk: () => Promise<void> }) {
   const [galat, setGalat] = useState("");
   const [sibuk, setSibuk] = useState(false);
 
+  // Muat daftar nama dengan kode. Bila kode tersimpan sudah diganti bendahara, minta kode baru.
+  const muatDaftar = useCallback(async (kodeCoba: string, otomatis: boolean) => {
+    setGalat("");
+    setLangkah(otomatis ? "memuat" : "kode");
+    setSibuk(true);
+    try {
+      const hasil = await ambilDaftarNama(kodeCoba);
+      tulis(KUNCI_KODE, kodeCoba.trim());
+      setDaftar(hasil);
+      setCari("");
+      setLangkah("nama");
+    } catch (e) {
+      const pesan = e instanceof Error ? e.message : "Terjadi kesalahan. Coba lagi.";
+      if (otomatis && pesan === "Kode kelas salah.") {
+        tulis(KUNCI_KODE, null);
+        setGalat("Kode kelas sudah diganti. Masukkan kode yang baru.");
+      } else setGalat(pesan);
+      setLangkah("kode");
+    } finally {
+      setSibuk(false);
+    }
+  }, []);
+
   useEffect(() => {
+    if (mode !== "siswa") return;
     const ingat = bacaPerangkat();
     if (ingat) {
       setPilih(ingat);
       setLangkah("pin");
+      return;
     }
-  }, []);
+    const tersimpan = baca(KUNCI_KODE);
+    if (tersimpan) void muatDaftar(tersimpan, true);
+    else setLangkah("kode");
+  }, [mode, muatDaftar]);
 
   async function jalankan(aksi: () => Promise<void>) {
     setGalat("");
@@ -51,25 +99,12 @@ export default function Masuk({ onMasuk }: { onMasuk: () => Promise<void> }) {
     }
   }
 
-  const lihatDaftar = (e: React.FormEvent) => {
-    e.preventDefault();
-    void jalankan(async () => {
-      setDaftar(await ambilDaftarNama(kode));
-      setCari("");
-      setLangkah("nama");
-    });
-  };
-
   const masuk = (e: React.FormEvent) => {
     e.preventDefault();
     if (!pilih) return;
     void jalankan(async () => {
       await masukSiswa(pilih.nrp, pin);
-      try {
-        window.localStorage.setItem(KUNCI_PERANGKAT, JSON.stringify(pilih));
-      } catch {
-        /* penyimpanan boleh gagal, tidak memengaruhi login */
-      }
+      tulis(KUNCI_PERANGKAT, JSON.stringify(pilih));
       setPin("");
       await onMasuk();
     });
@@ -84,14 +119,19 @@ export default function Masuk({ onMasuk }: { onMasuk: () => Promise<void> }) {
     });
   };
 
-  function bukanAku() {
-    try {
-      window.localStorage.removeItem(KUNCI_PERANGKAT);
-    } catch {
-      /* abaikan */
-    }
+  function gantiNama() {
+    tulis(KUNCI_PERANGKAT, null);
     setPilih(null);
     setPin("");
+    setGalat("");
+    const tersimpan = baca(KUNCI_KODE);
+    if (tersimpan) void muatDaftar(tersimpan, true);
+    else setLangkah("kode");
+  }
+
+  function gantiKode() {
+    tulis(KUNCI_KODE, null);
+    setKode("");
     setGalat("");
     setLangkah("kode");
   }
@@ -102,17 +142,19 @@ export default function Masuk({ onMasuk }: { onMasuk: () => Promise<void> }) {
     <div className="login-wrap">
       <div className="login-paper">
         <div className="brand-mark">K</div>
-        <h1>KasKelas.</h1>
-        <p>Buku kas kelas yang dicap.</p>
+        <h1>{mode === "bendahara" ? "Masuk bendahara." : "KasKelas."}</h1>
+        {mode === "siswa" && <p>Buku kas kelas yang dicap.</p>}
+
+        {mode === "siswa" && langkah === "memuat" && <p role="status">Membuka daftar nama.</p>}
 
         {mode === "siswa" && langkah === "kode" && (
-          <form onSubmit={lihatDaftar}>
+          <form onSubmit={(e) => { e.preventDefault(); void muatDaftar(kode, false); }}>
             <label className="field-label">Kode kelas
               <input value={kode} onChange={(e) => setKode(e.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} required />
             </label>
-            <p className="field-hint">Kode dibagikan bendahara lewat grup kelas. Cukup dimasukkan sekali di perangkat ini.</p>
+            <p className="field-hint">Minta kodenya ke bendahara. Cukup sekali di perangkat ini.</p>
             {galat && <p className="field-error" role="alert">{galat}</p>}
-            <Button type="submit" disabled={sibuk || kode.trim().length < 3}>{sibuk ? "Memeriksa kode" : "Lihat daftar nama"}</Button>
+            <Button type="submit" disabled={sibuk || kode.trim().length < 3}>{sibuk ? "Memeriksa kode" : "Lanjut"}</Button>
           </form>
         )}
 
@@ -131,7 +173,7 @@ export default function Masuk({ onMasuk }: { onMasuk: () => Promise<void> }) {
               ))}
             </ul>
             {!tersaring.length && <p className="empty-message">Tidak ada nama yang cocok. Coba ketik sebagian nama saja.</p>}
-            <Button kind="secondary" onClick={() => setLangkah("kode")}>Kembali</Button>
+            <button type="button" className="text-button" onClick={gantiKode}>Ganti kode kelas</button>
           </div>
         )}
 
@@ -147,7 +189,7 @@ export default function Masuk({ onMasuk }: { onMasuk: () => Promise<void> }) {
             </label>
             {galat && <p className="field-error" role="alert">{galat}</p>}
             <Button type="submit" disabled={sibuk || pin.length !== 6}>{sibuk ? "Memeriksa PIN" : "Masuk"}</Button>
-            <button type="button" className="text-button" onClick={bukanAku}>Bukan {pilih.nama}? Ganti nama</button>
+            <button type="button" className="text-button" onClick={gantiNama}>Bukan {pilih.nama}? Ganti nama</button>
           </form>
         )}
 
@@ -157,19 +199,13 @@ export default function Masuk({ onMasuk }: { onMasuk: () => Promise<void> }) {
               <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <label className="field-label">Kata sandi
-              <input type="password" autoComplete="current-password" minLength={12} value={kataSandi} onChange={(e) => setKataSandi(e.target.value)} required />
+              <input type="password" autoComplete="current-password" value={kataSandi} onChange={(e) => setKataSandi(e.target.value)} required />
             </label>
             {galat && <p className="field-error" role="alert">{galat}</p>}
-            <Button type="submit" disabled={sibuk}>{sibuk ? "Memeriksa" : "Masuk sebagai bendahara"}</Button>
+            <Button type="submit" disabled={sibuk}>{sibuk ? "Memeriksa" : "Masuk"}</Button>
+            <a className="text-button" href="/">Halaman masuk siswa</a>
           </form>
         )}
-
-        <div className="role-switch">
-          <span>{mode === "siswa" ? "Kamu bendahara?" : "Kamu siswa?"}</span>
-          <button className="text-button" onClick={() => { setMode(mode === "siswa" ? "bendahara" : "siswa"); setGalat(""); }}>
-            {mode === "siswa" ? "Masuk di sini" : "Kembali ke masuk siswa"}
-          </button>
-        </div>
       </div>
     </div>
   );

@@ -75,10 +75,14 @@ export async function muatSesi(): Promise<Sesi | null> {
 
 // ---------- data kelas ----------
 export type Saldo = { pemasukan_kas: number; pemasukan_denda: number; pengeluaran: number; saldo: number };
-export type Konfigurasi = { nominal_mingguan: number; denda_aktif: boolean; denda_berlaku_mulai: string | null };
+export type Konfigurasi = {
+  nominal_mingguan: number; denda_aktif: boolean; denda_berlaku_mulai: string | null;
+  merchant_kode: string; merchant_nama: string | null; toleransi_detik: number;
+};
 export type Pengeluaran = { id: string; tanggal: string; nominal: number; kategori: string; keterangan: string | null };
 export type PembayaranPublik = { id: string; siswa_id: string; metode: "qris" | "cash"; nominal_bukti: number; waktu_bayar: string | null; status: string; dibuat_pada: string };
 export type GopayTanpaPemilik = { no_transaksi: string; waktu_dibuat: string; nominal: number };
+export type GopayRingkas = { no_transaksi: string; waktu_dibuat: string; nominal: number; pembayaran_id: string | null };
 
 // PostgREST membatasi satu respons (bawaan Supabase 1000 baris). Papan tumbuh 29 baris per minggu,
 // jadi diambil per halaman agar minggu terbaru tidak terpotong diam-diam.
@@ -94,7 +98,7 @@ export async function muatPapan(): Promise<PapanRow[]> {
   }
 }
 export const muatSaldo = () => jalankan<Saldo>(supabase().from("saldo_kas").select("*").single());
-export const muatKonfigurasi = () => jalankan<Konfigurasi>(supabase().from("konfigurasi").select("nominal_mingguan, denda_aktif, denda_berlaku_mulai").single());
+export const muatKonfigurasi = () => jalankan<Konfigurasi>(supabase().from("konfigurasi").select("nominal_mingguan, denda_aktif, denda_berlaku_mulai, merchant_kode, merchant_nama, toleransi_detik").single());
 export const muatPengeluaran = () =>
   jalankan<Pengeluaran[]>(supabase().from("pengeluaran").select("id, tanggal, nominal, kategori, keterangan").order("tanggal", { ascending: false }).limit(100));
 export const muatPembayaran = () =>
@@ -127,5 +131,72 @@ export async function setDendaAktif(aktif: boolean): Promise<void> {
 }
 export async function tambahPengeluaran(p: { tanggal: string; nominal: number; kategori: string; keterangan: string }): Promise<void> {
   const { error } = await supabase().from("pengeluaran").insert({ tanggal: p.tanggal, nominal: p.nominal, kategori: p.kategori, keterangan: p.keterangan || null });
+  if (error) throw galat(error);
+}
+
+// ---------- unggah bukti dan pencocokan (M3) ----------
+export type HasilAjukan = { pembayaran_id: string; status: "terkonfirmasi" | "lunas_sementara" | "perlu_dicek" | "mencurigakan"; total: number };
+
+export async function ajukanQris(p: {
+  tagihanIds: string[]; nominal: number; waktuIso: string | null; ref: string | null; hash: string; ocr: Record<string, unknown>;
+}): Promise<HasilAjukan> {
+  const rows = await jalankan<HasilAjukan[]>(supabase().rpc("ajukan_pembayaran_qris", {
+    p_tagihan: p.tagihanIds, p_nominal: p.nominal, p_waktu: p.waktuIso, p_ref: p.ref, p_hash: p.hash, p_ocr: p.ocr,
+  }));
+  return rows[0];
+}
+export async function batalkanKlaimSaya(id: string): Promise<void> {
+  await jalankan(supabase().rpc("batalkan_klaim_saya", { p_pembayaran: id }));
+}
+
+export type KlaimAntrean = {
+  id: string; siswa_id: string; nominal_bukti: number; waktu_bayar: string | null; status: string; dibuat_pada: string;
+  hasil_ocr: { ragu?: string[] } | null;
+  alokasi_pembayaran: { jumlah_pokok: number; jumlah_denda: number; tagihan: { minggu: { mulai: string; akhir: string } } | null }[];
+};
+export const muatAntrean = () =>
+  jalankan<KlaimAntrean[]>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase().from("pembayaran")
+      .select("id, siswa_id, nominal_bukti, waktu_bayar, status, dibuat_pada, hasil_ocr, alokasi_pembayaran(jumlah_pokok, jumlah_denda, tagihan(minggu(mulai, akhir)))")
+      .in("status", ["perlu_dicek", "mencurigakan"]).order("dibuat_pada")) as unknown as PromiseLike<{ data: KlaimAntrean[] | null; error: unknown }>,
+  );
+
+export async function ambilSemua<T>(ambil: (dari: number, sampai: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+  const ukuran = 1000;
+  const semua: T[] = [];
+  for (let dari = 0; ; dari += ukuran) {
+    const hal = await jalankan<T[]>(ambil(dari, dari + ukuran - 1));
+    semua.push(...hal);
+    if (hal.length < ukuran) return semua;
+  }
+}
+export const muatGopayRingkas = () =>
+  ambilSemua<GopayRingkas>((a, b) => supabase().from("gopay_txn").select("no_transaksi, waktu_dibuat, nominal, pembayaran_id").order("waktu_dibuat").range(a, b));
+export const muatKlaimMenunggu = () =>
+  jalankan<{ nominal_bukti: number }[]>(supabase().from("pembayaran").select("nominal_bukti").eq("metode", "qris").in("status", ["lunas_sementara", "perlu_dicek", "mencurigakan"]));
+
+export async function imporGopay(baris: unknown[]): Promise<{ baru: number; dicocokkan: number; tanpa_pemilik: number; mencurigakan: number }> {
+  const rows = await jalankan<{ baru: number; dicocokkan: number; tanpa_pemilik: number; mencurigakan: number }[]>(supabase().rpc("impor_gopay", { p_baris: baris }));
+  return rows[0];
+}
+export async function tetapkanPemilik(noTransaksi: string, nrp: string): Promise<void> {
+  await jalankan(supabase().rpc("tetapkan_pemilik", { p_no_transaksi: noTransaksi, p_nrp: nrp }));
+}
+export async function putuskanKlaim(p: { id: string; terima: boolean; alasan?: string; noTransaksi?: string }): Promise<void> {
+  await jalankan(supabase().rpc("putuskan_klaim", { p_pembayaran: p.id, p_terima: p.terima, p_alasan: p.alasan ?? null, p_no_transaksi: p.noTransaksi ?? null }));
+}
+
+// ---------- pengingat wa.me ----------
+export type LogPengingat = { siswa_id: string; tagihan_id: string; tahap: string; channel: string; status: string; waktu: string };
+export const muatPengingat = () =>
+  jalankan<LogPengingat[]>(supabase().from("log_pengingat").select("siswa_id, tagihan_id, tahap, channel, status, waktu").eq("channel", "wa").order("waktu", { ascending: false }).limit(400));
+export async function catatPengingat(p: { siswaId: string; tagihanId: string; tahap: string; status: "dibuka" | "dikonfirmasi" }): Promise<void> {
+  const { error } = await supabase().from("log_pengingat").insert({ siswa_id: p.siswaId, tagihan_id: p.tagihanId, tahap: p.tahap, channel: "wa", status: p.status });
+  if (error) throw galat(error);
+}
+export const muatNoWa = () => jalankan<{ id: string; no_wa: string | null }[]>(supabase().from("siswa").select("id, no_wa"));
+export async function simpanNoWa(siswaId: string, noWa: string): Promise<void> {
+  const { error } = await supabase().from("siswa").update({ no_wa: noWa.trim() || null }).eq("id", siswaId);
   if (error) throw galat(error);
 }

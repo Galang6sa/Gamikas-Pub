@@ -9,7 +9,7 @@ const baris = (o: Partial<PapanRow>): PapanRow => ({
   jumlah_denda: null, status: "belum", ...o,
 });
 const ring = (o: Partial<Ringkasan>): Ringkasan => ({
-  tagihan_id: "t", minggu_id: "m", mulai: "2026-10-12", akhir: "2026-10-18", jatuh_tempo: "2026-10-18T16:59:59Z", status: "belum", pokok: 5000, denda: 0, total: 5000, denda_dibebaskan: false, ...o,
+  tagihan_id: "t", minggu_id: "m", mulai: "2026-10-12", akhir: "2026-10-18", jatuh_tempo: "2026-10-18T16:59:59Z", status: "belum", pokok: 5000, denda: 0, total: 5000, denda_dibebaskan: false, pembayaran_id: null, ...o,
 });
 const kini = new Date("2026-10-23T10:00:00+07:00");
 
@@ -47,6 +47,7 @@ describe("status dan tunggakan", () => {
     expect(stempel("terkonfirmasi")).toBe("lunas");
     expect(stempel("lunas_sementara")).toBe("lunas");
     expect(stempel("perlu_dicek")).toBe("cek");
+    expect(stempel("mencurigakan")).toBe("tinjau");
     expect(stempel("libur")).toBe("libur");
     expect(stempel("belum")).toBe("belum");
   });

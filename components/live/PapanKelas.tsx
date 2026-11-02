@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { Button, StatusStamp } from "@/components/ui";
+import { namaSingkat } from "@/lib/nama";
 import { bulanDari, lunasDiMinggu, mingguBerjalan, namaBulan, rupiah, stempel, susunMatriks, tunggakanPokok, type SiswaBaris } from "@/lib/papan";
 import type { Ctx } from "./tipe";
 
-// Blok denah bangku dan papan pembayaran. Dipakai di Beranda dan layar Papan.
-export default function PapanKelas({ ctx }: { ctx: Ctx }) {
+// Denah bangku dan papan pembayaran. Dipakai di Beranda dan layar Papan.
+export default function PapanKelas({ ctx, awal = "denah" }: { ctx: Ctx; awal?: "denah" | "papan" }) {
   const { kelas, sesi, sekarang } = ctx;
-  const [mode, setMode] = useState<"denah" | "papan">("denah");
+  const [mode, setMode] = useState<"denah" | "papan">(awal);
   const [bulanDipilih, setBulanDipilih] = useState("");
   const [terpilih, setTerpilih] = useState<SiswaBaris | null>(null);
 
@@ -25,10 +26,10 @@ export default function PapanKelas({ ctx }: { ctx: Ctx }) {
 
   const urut = [...m.siswa.filter((s) => s.id === sesi.siswaId), ...m.siswa.filter((s) => s.id !== sesi.siswaId)];
 
-  function bulanTabel(b: string) {
+  function bulanTabel(b: string, lalu: boolean) {
     const kolom = m.minggu.filter((x) => x.mulai.startsWith(b));
     return (
-      <div className="month-board" key={b}>
+      <div className={`month-board ${lalu ? "month-board--lalu" : ""}`} key={b}>
         <h3>{namaBulan(b)}</h3>
         <div className="board-scroll" role="region" aria-label={`Papan pembayaran ${namaBulan(b)}`} tabIndex={0}>
           <table className="payment-board">
@@ -36,18 +37,23 @@ export default function PapanKelas({ ctx }: { ctx: Ctx }) {
               <tr>
                 <th scope="col">Siswa</th>
                 {kolom.map((k) => <th scope="col" key={k.id}>{k.mulai.slice(8)}/{k.mulai.slice(5, 7)}</th>)}
-                <th scope="col">Tunggakan pokok</th>
+                <th scope="col" className="col-tunggak">Tunggak</th>
               </tr>
             </thead>
             <tbody>
               {urut.map((s) => (
                 <tr key={s.id} className={s.id === sesi.siswaId ? "board-me" : ""}>
-                  <th scope="row"><span className="student-number">{s.no_absen}</span> {s.nama}</th>
+                  <th scope="row">
+                    <button className="board-name" onClick={() => setTerpilih(s)} aria-label={`${s.no_absen}. ${s.nama}`}>
+                      <span className="student-number">{s.no_absen}</span>
+                      <span className="nama-pendek" title={s.nama}>{namaSingkat(s.nama)}</span>
+                    </button>
+                  </th>
                   {kolom.map((k) => {
                     const r = m.sel.get(`${s.id}:${k.id}`);
-                    return <td key={k.id}>{r ? <StatusStamp status={stempel(r.status)} /> : <span aria-label="Tidak ada tagihan">-</span>}</td>;
+                    return <td key={k.id}>{r ? <StatusStamp status={stempel(r.status)} compact /> : <span aria-label="Tidak ada tagihan">-</span>}</td>;
                   })}
-                  <td>{rupiah(tunggakanPokok(kelas.papan, s.id, sekarang))}</td>
+                  <td className="col-tunggak">{rupiah(tunggakanPokok(kelas.papan, s.id, sekarang))}</td>
                 </tr>
               ))}
             </tbody>
@@ -58,11 +64,12 @@ export default function PapanKelas({ ctx }: { ctx: Ctx }) {
   }
 
   const barisTerpilih = terpilih ? m.sel.get(`${terpilih.id}:${berjalan.id}`) : undefined;
+  const statusSheet = !barisTerpilih ? "belum bayar." : ["terkonfirmasi", "lunas_sementara"].includes(barisTerpilih.status) ? "lunas." : barisTerpilih.status === "libur" ? "minggu libur." : barisTerpilih.status === "belum" ? "belum bayar." : "bukti menunggu cek.";
 
   return (
     <section className="paper section-block floorplan-block">
       <div className="section-heading">
-        <div><h2>Denah bangku</h2><p>{lunas.size} dari {m.siswa.length} sudah bayar minggu ini.</p></div>
+        <div><h2>{mode === "denah" ? "Denah bangku" : "Papan pembayaran"}</h2><p>{lunas.size} dari {m.siswa.length} sudah bayar minggu ini.</p></div>
         <div className="segmented" role="group" aria-label="Tampilan pembayaran">
           <button className={mode === "denah" ? "selected" : ""} onClick={() => setMode("denah")}>Denah</button>
           <button className={mode === "papan" ? "selected" : ""} onClick={() => setMode("papan")}>Papan</button>
@@ -92,8 +99,11 @@ export default function PapanKelas({ ctx }: { ctx: Ctx }) {
             <strong>{namaBulan(aktif)}</strong>
             <Button kind="secondary" onClick={() => setBulanDipilih(bulan[idx + 1])} disabled={idx >= bulan.length - 1} ariaLabel="Bulan berikutnya">Berikutnya</Button>
           </div>
-          <p className="board-hint">Gulir mendatar untuk melihat minggu dan nama lainnya.</p>
-          <div className="board-month-grid">{[aktif, bulan[idx + 1]].filter(Boolean).map(bulanTabel)}</div>
+          <p className="board-hint">Gulir mendatar untuk melihat minggu lainnya. Ketuk nama untuk detail.</p>
+          <div className="board-month-grid">
+            {idx > 0 && bulanTabel(bulan[idx - 1], true)}
+            {bulanTabel(aktif, false)}
+          </div>
         </>
       )}
 
@@ -103,7 +113,7 @@ export default function PapanKelas({ ctx }: { ctx: Ctx }) {
             <div className="sheet-handle" />
             <p className="eyebrow">Bangku {terpilih.no_absen}</p>
             <h2 id="sheet-siswa">{terpilih.nama}</h2>
-            <p>NRP {terpilih.nrp}. Status minggu ini: {barisTerpilih && ["terkonfirmasi", "lunas_sementara"].includes(barisTerpilih.status) ? "lunas." : barisTerpilih?.status === "perlu_dicek" ? "bukti menunggu cek." : barisTerpilih?.status === "libur" ? "minggu libur." : "belum bayar."}</p>
+            <p>NRP {terpilih.nrp}. Minggu ini: {statusSheet}</p>
             {barisTerpilih && <StatusStamp status={stempel(barisTerpilih.status)} />}
             <div className="button-row"><Button kind="secondary" onClick={() => setTerpilih(null)}>Tutup</Button></div>
           </section>
